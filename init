@@ -1,0 +1,369 @@
+#!/bin/sh
+set -eu
+
+die() { echo "Error: $*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+slugify() {
+  echo "$1" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9-' '-' | sed 's/^-//;s/-$//'
+}
+
+usage() {
+  cat <<EOF
+Usage:
+  ./init [--name <slug>] [--env dev|prod|both] [--services "db api web|all"]
+         [--auto-ports] [--dev-api <p>] [--dev-db <p>] [--dev-web-dev <p>] [--dev-web <p>]
+         [--prod-api <p>] [--prod-db <p>] [--prod-web <p>]
+         [--db-user <u>] [--db-pass <p>] [--db-name <n>]
+
+Examples:
+  ./init
+  ./init --name sicarus --env both --services "db api web" --auto-ports
+  ./init --name crm --env dev --services all --dev-api 3001 --dev-db 5433
+EOF
+  exit 1
+}
+
+# --- Port checks
+is_port_in_use() {
+  p="$1"
+  if have netstat; then
+    netstat -an 2>/dev/null | grep -q "[:.]$p[[:space:]]" && return 0
+    return 1
+  fi
+  return 1
+}
+
+find_free_port() {
+  start="$1"
+  p="$start"
+  while [ "$p" -lt 65000 ]; do
+    if ! is_port_in_use "$p"; then
+      echo "$p"; return 0
+    fi
+    p=$((p+1))
+  done
+  die "No encontré puertos libres desde $start"
+}
+
+ask() {
+  prompt="$1"; def="${2:-}"
+  if [ -n "$def" ]; then printf "%s [%s]: " "$prompt" "$def" >&2; else printf "%s: " "$prompt" >&2; fi
+  read -r ans || true
+  [ -n "${ans:-}" ] && echo "$ans" || echo "$def"
+}
+
+ask_yesno() {
+  prompt="$1"; def="${2:-y}"
+  while :; do
+    ans="$(ask "$prompt (y/n)" "$def")"
+    case "$ans" in y|Y) echo "y"; return 0;; n|N) echo "n"; return 0;; *) echo "Please answer y or n.";; esac
+  done
+}
+
+normalize_services() {
+  in="$1"
+  out=""
+  for s in $in; do
+    case "$s" in
+      all) echo "db api web"; return 0 ;;
+      db|api|web) out="$out $s" ;;
+      *) die "Servicio inválido: $s" ;;
+    esac
+  done
+  echo "$(echo "$out" | xargs)"
+}
+
+configure_path() {
+  PROJECT_BIN_DIR="$ROOT/bin"
+  
+  # Detect candidates based on shell
+  CANDIDATES=""
+  case "${SHELL:-/bin/sh}" in
+    */zsh) CANDIDATES="$HOME/.zshrc $HOME/.profile" ;;
+    */bash) CANDIDATES="$HOME/.bash_profile $HOME/.bashrc $HOME/.profile" ;;
+    *) CANDIDATES="$HOME/.profile" ;;
+  esac
+  
+  TARGET_RC=""
+  for rc in $CANDIDATES; do
+    if [ -f "$rc" ]; then
+      TARGET_RC="$rc"
+      break
+    fi
+  done
+  
+  if [ -z "$TARGET_RC" ]; then
+    # Default to first candidate if none exist
+    DEFAULT_RC="$(echo "$CANDIDATES" | awk '{print $1}')"
+    echo ""
+    echo "No encontré archivos de configuración shell ($CANDIDATES)."
+    if [ "$(ask_yesno "¿Crear $DEFAULT_RC y agregar binario al PATH?" "y")" = "y" ]; then
+      TARGET_RC="$DEFAULT_RC"
+      touch "$TARGET_RC" || { echo "No pude crear $TARGET_RC"; TARGET_RC=""; }
+    fi
+  fi
+
+  if [ -n "$TARGET_RC" ]; then
+    echo ""
+    # Check if we didn't just ask to create it (to avoid double asking, but simplicity is better)
+    # If we just created it, it's empty, so adding is safe. 
+    # If it existed, we ask.
+    # To be consistent, let's just ask "Agregar ... al PATH en ..." always or skip if we just created?
+    # Actually, if we just created it, we implicitly agreed to add path.
+    # But let's stick to the previous flow or just unify.
+    
+    # Let's prompt again for clarity or just do it? 
+    # The previous block asked "Crear ... AND agregar ...". So if yes, we should just add it.
+    
+    DO_ADD="n"
+    if [ ! -s "$TARGET_RC" ]; then 
+       # It's empty (just created), we already asked.
+       DO_ADD="y"
+    else
+       if [ "$(ask_yesno "¿Agregar $PROJECT_BIN_DIR al PATH en $TARGET_RC?" "y")" = "y" ]; then
+         DO_ADD="y"
+       fi
+    fi
+
+    if [ "$DO_ADD" = "y" ]; then
+      if grep -qF "$PROJECT_BIN_DIR" "$TARGET_RC"; then
+        echo "--> Ya existe en $TARGET_RC"
+      else
+        echo "" >> "$TARGET_RC"
+        echo "# $NAME project bin" >> "$TARGET_RC"
+        echo "export PATH=\"$PROJECT_BIN_DIR:\$PATH\"" >> "$TARGET_RC"
+        echo "--> Agregado a $TARGET_RC."
+        echo "    Para usarlo, ejecuta: source $TARGET_RC"
+      fi
+    fi
+  else
+    echo ""
+    echo "No se modificó el PATH. Para usar el binario globalmente agrega:"
+    echo "  export PATH=\"$PROJECT_BIN_DIR:\$PATH\""
+  fi
+}
+
+# --- Args (non-interactive)
+NAME=""
+ENV_MODE=""
+SERVICES=""
+AUTO_PORTS="0"
+DB_USER=""
+DB_PASS=""
+DB_NAME=""
+
+DEV_DB=""
+DEV_API=""
+DEV_WEB_DEV=""
+DEV_WEB=""
+
+PROD_DB=""
+PROD_API=""
+PROD_WEB=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --name) NAME="$2"; shift 2 ;;
+    --env) ENV_MODE="$2"; shift 2 ;; # dev|prod|both
+    --services) SERVICES="$2"; shift 2 ;; # "db api web" | "all"
+    --auto-ports) AUTO_PORTS="1"; shift ;;
+    --db-user) DB_USER="$2"; shift 2 ;;
+    --db-pass) DB_PASS="$2"; shift 2 ;;
+    --db-name) DB_NAME="$2"; shift 2 ;;
+
+    --dev-db) DEV_DB="$2"; shift 2 ;;
+    --dev-api) DEV_API="$2"; shift 2 ;;
+    --dev-web-dev) DEV_WEB_DEV="$2"; shift 2 ;;
+    --dev-web) DEV_WEB="$2"; shift 2 ;;
+
+    --prod-db) PROD_DB="$2"; shift 2 ;;
+    --prod-api) PROD_API="$2"; shift 2 ;;
+    --prod-web) PROD_WEB="$2"; shift 2 ;;
+    -h|--help) usage ;;
+    *) die "Arg desconocido: $1" ;;
+  esac
+done
+
+ROOT="$(pwd)"
+[ -f "$ROOT/docker-compose.yml" ] || die "No encuentro docker-compose.yml en $ROOT"
+
+echo "=== Init template (Docker + Postgres + Bun + React) ==="
+
+# Interactive if missing required
+if [ -z "$NAME" ]; then
+  NAME_RAW="$(ask "Nombre del proyecto (ej: sicarus)" "myapp")"
+  NAME="$(slugify "$NAME_RAW")"
+else
+  NAME="$(slugify "$NAME")"
+fi
+[ -n "$NAME" ] || die "Nombre inválido"
+
+if [ -z "$ENV_MODE" ]; then
+  both="$(ask_yesno "¿Quieres generar DEV y PROD?" "y")"
+  ENV_MODE=$([ "$both" = "y" ] && echo "both" || echo "dev")
+fi
+case "$ENV_MODE" in dev|prod|both) :;; *) die "--env debe ser dev|prod|both";; esac
+
+if [ -z "$SERVICES" ]; then
+  echo "Selecciona servicios (separados por espacio): db api web (o all)"
+  SERVICES="$(ask "Servicios" "all")"
+fi
+SERVICES_NORM="$(normalize_services "$SERVICES")"
+[ -n "$SERVICES_NORM" ] || die "Servicios inválidos"
+
+[ -n "$DB_USER" ] || DB_USER="$(ask "POSTGRES_USER" "appuser")"
+[ -n "$DB_PASS" ] || DB_PASS="$(ask "POSTGRES_PASSWORD" "changeme")"
+[ -n "$DB_NAME" ] || DB_NAME="$(ask "POSTGRES_DB" "appdb")"
+
+# Ports defaults
+# DEV
+if [ "$AUTO_PORTS" = "1" ]; then
+  [ -n "$DEV_DB" ] || DEV_DB="$(find_free_port 5433)"
+  [ -n "$DEV_API" ] || DEV_API="$(find_free_port 3001)"
+  [ -n "$DEV_WEB" ] || DEV_WEB="$(find_free_port 8081)"
+else
+  [ -n "$DEV_DB" ] || DEV_DB="$(ask "DEV DB host port (-> 5432 contenedor)" "5433")"
+  [ -n "$DEV_API" ] || DEV_API="$(ask "DEV API host port (-> 3000 contenedor)" "3001")"
+  [ -n "$DEV_WEB" ] || DEV_WEB="$(ask "DEV WEB host port (-> 80 contenedor)" "8081")"
+fi
+
+# PROD
+if [ "$ENV_MODE" = "both" ] || [ "$ENV_MODE" = "prod" ]; then
+  if [ "$AUTO_PORTS" = "1" ]; then
+    [ -n "$PROD_DB" ] || PROD_DB="$(find_free_port 5600)"
+    [ -n "$PROD_API" ] || PROD_API="$(find_free_port 3601)"
+    [ -n "$PROD_WEB" ] || PROD_WEB="$(find_free_port 8601)"
+  else
+    [ -n "$PROD_DB" ] || PROD_DB="$(ask "PROD DB host port (-> 5432 contenedor)" "5600")"
+    [ -n "$PROD_API" ] || PROD_API="$(ask "PROD API host port (-> 3000 contenedor)" "3601")"
+    [ -n "$PROD_WEB" ] || PROD_WEB="$(ask "PROD WEB host port (-> 80 contenedor)" "8601")"
+  fi
+fi
+
+mkdir -p "$ROOT/bin" "$ROOT/deploy"
+
+# Source of truth config
+cat > "$ROOT/project.config" <<EOF
+# Generated by ./init
+PROJECT_NAME=$NAME
+SERVICES="$SERVICES_NORM"
+
+POSTGRES_USER=$DB_USER
+POSTGRES_PASSWORD=$DB_PASS
+POSTGRES_DB=$DB_NAME
+
+DEV_POSTGRES_PORT=$DEV_DB
+DEV_API_PORT=$DEV_API
+DEV_WEB_PORT=$DEV_WEB
+
+PROD_POSTGRES_PORT=$PROD_DB
+PROD_API_PORT=$PROD_API
+PROD_WEB_PORT=$PROD_WEB
+EOF
+
+# Env files
+cat > "$ROOT/.env.dev" <<EOF
+POSTGRES_USER=$DB_USER
+POSTGRES_PASSWORD=$DB_PASS
+POSTGRES_DB=$DB_NAME
+POSTGRES_PORT=$DEV_DB
+
+API_PORT=$DEV_API
+WEB_PORT=$DEV_WEB
+
+DATABASE_URL=postgres://$DB_USER:$DB_PASS@postgres:5432/$DB_NAME
+EOF
+
+if [ "$ENV_MODE" = "both" ] || [ "$ENV_MODE" = "prod" ]; then
+cat > "$ROOT/.env.prod" <<EOF
+POSTGRES_USER=$DB_USER
+POSTGRES_PASSWORD=$DB_PASS
+POSTGRES_DB=$DB_NAME
+POSTGRES_PORT=$PROD_DB
+
+API_PORT=$PROD_API
+WEB_PORT=$PROD_WEB
+
+DATABASE_URL=postgres://$DB_USER:$DB_PASS@postgres:5432/$DB_NAME
+EOF
+fi
+
+cat > "$ROOT/.env.example" <<EOF
+POSTGRES_USER=appuser
+POSTGRES_PASSWORD=changeme
+POSTGRES_DB=appdb
+POSTGRES_PORT=5433
+
+API_PORT=3001
+WEB_PORT=8081
+
+DATABASE_URL=postgres://appuser:changeme@postgres:5432/appdb
+EOF
+
+# Ensure base deploy scripts exist (generated earlier or you add them once)
+# Only generate missing; do not overwrite if already present
+[ -f "$ROOT/deploy/_lib.sh" ] || die "Falta deploy/_lib.sh. (Copia tu versión base o genera con la versión anterior.)"
+
+# Generate project bin
+BIN="$ROOT/bin/$NAME"
+cat > "$BIN" <<EOF
+#!/bin/sh
+set -eu
+ROOT_DIR="\$(cd "\$(dirname "\$0")/.." && pwd)"
+cmd="\${1:-}"; shift || true
+
+case "\$cmd" in
+  up)      exec "\$ROOT_DIR/deploy/up.sh" "$NAME" "\$@" ;;
+  down)    exec "\$ROOT_DIR/deploy/down.sh" "$NAME" "\$@" ;;
+  logs)    exec "\$ROOT_DIR/deploy/logs.sh" "$NAME" "\$@" ;;
+  ps)      exec "\$ROOT_DIR/deploy/ps.sh" "$NAME" "\$@" ;;
+  restart) exec "\$ROOT_DIR/deploy/restart.sh" "$NAME" "\$@" ;;
+  doctor)  exec "\$ROOT_DIR/deploy/doctor.sh" "$NAME" "\$@" ;;
+  reset)   exec "\$ROOT_DIR/deploy/reset.sh" "$NAME" "\$@" ;;
+  open)    exec "\$ROOT_DIR/deploy/open.sh" "$NAME" "\$@" ;;
+  config)  exec "\$ROOT_DIR/deploy/config.sh" "$NAME" "\$@" ;;
+  api)
+    sub="\${1:-}"; shift || true
+    case "\$sub" in add) exec "\$ROOT_DIR/deploy/api-add.sh" "$NAME" "\$@" ;; *) echo "Usage: $NAME api add -e dev|prod <pkg...>"; exit 1;; esac
+    ;;
+  web)
+    sub="\${1:-}"; shift || true
+    case "\$sub" in add) exec "\$ROOT_DIR/deploy/web-add.sh" "$NAME" "\$@" ;; *) echo "Usage: $NAME web add -e dev|prod <pkg...>"; exit 1;; esac
+    ;;
+  proxy) exec "\$ROOT_DIR/deploy/proxy.sh" "$NAME" "\$@" ;;
+  *)
+    echo "Usage:"
+    echo "  $NAME up      -e dev|prod -s <db api web|all> [--no-build]"
+    echo "  $NAME down    -e dev|prod"
+    echo "  $NAME logs    -e dev|prod [-s <db api web|all>]"
+    echo "  $NAME ps      -e dev|prod"
+    echo "  $NAME restart -e dev|prod -s <db api web|all>"
+    echo "  $NAME doctor  -e dev|prod"
+    echo "  $NAME reset   -e dev|prod [--volumes]"
+    echo "  $NAME open    -e dev|prod"
+    echo "  $NAME config  -e dev|prod"
+    echo "  $NAME api add -e dev|prod <pkg...>"
+    echo "  $NAME web add -e dev|prod <pkg...>"
+    exit 1
+    ;;
+esac
+EOF
+chmod +x "$BIN"
+chmod +x "$ROOT/init"
+
+echo ""
+echo "=== Generado ==="
+echo "- project.config"
+echo "- .env.dev"
+[ -f "$ROOT/.env.prod" ] && echo "- .env.prod"
+echo "- .env.example"
+echo "- bin/$NAME"
+echo ""
+echo "Ejemplos:"
+echo "  ./bin/$NAME up -e dev -s all"
+[ -f "$ROOT/.env.prod" ] && echo "  ./bin/$NAME up -e prod -s all"
+echo "  ./bin/$NAME open -e dev"
+echo "  ./bin/$NAME doctor -e dev"
+
+configure_path

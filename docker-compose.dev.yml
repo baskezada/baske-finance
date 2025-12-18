@@ -1,0 +1,26 @@
+services:
+  postgres:
+    container_name: "${COMPOSE_PROJECT_NAME}-db"
+    ports:
+      - "${POSTGRES_PORT}:5432"
+
+  api:
+    container_name: "${COMPOSE_PROJECT_NAME}-api"
+    ports:
+      - "${API_PORT}:3000"
+    volumes:
+      - ./api:/app
+      - ./api/drizzle:/app/drizzle
+    command: [ "sh", "-lc", "bun install && bun run db:migrate && bun --watch src/index.ts" ]
+
+  web:
+    container_name: "${COMPOSE_PROJECT_NAME}-web"
+    image: node:22-alpine
+    working_dir: /app
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ./web:/app
+    ports:
+      - "${WEB_PORT}:5173"
+    command: [ "sh", "-lc", "npm install && npm run dev -- --host 0.0.0.0 --port 5173" ]

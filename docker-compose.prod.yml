@@ -1,0 +1,19 @@
+services:
+  postgres:
+    container_name: "${COMPOSE_PROJECT_NAME}-db"
+    ports:
+      - "${POSTGRES_PORT}:5432"
+
+  api:
+    container_name: "${COMPOSE_PROJECT_NAME}-api"
+    # Si NO quieres exponer API en prod, elimina el bloque ports completo.
+    ports:
+      - "${API_PORT}:3000"
+    command: [ "sh", "-lc", "bun run db:migrate && bun run start" ]
+
+  web:
+    container_name: "${COMPOSE_PROJECT_NAME}-web"
+    build:
+      context: ./web
+    ports:
+      - "${WEB_PORT}:80"
