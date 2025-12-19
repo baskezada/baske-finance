@@ -1,52 +1,88 @@
+import { serve } from "@hono/node-server";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { db, sql } from "./db";
-import { users } from "./schema";
-import { eq } from "drizzle-orm";
+import { users, todos } from "./schema";
+import { eq, desc } from "drizzle-orm";
 
+const app = new Hono();
 const port = Number(process.env.PORT) || 3000;
 
-Bun.serve({
-  port,
-  async fetch(req) {
-    const url = new URL(req.url);
+app.use("*", cors());
 
-    if (url.pathname === "/health") {
-      return Response.json({ ok: true });
-    }
+app.get("/health", (c) => c.json({ ok: true }));
 
-    if (url.pathname === "/users" && req.method === "GET") {
-      const rows = await db.select().from(users).orderBy(users.id);
-      return Response.json(rows);
-    }
+// --- Users ---
+app.get("/users", async (c) => {
+  const rows = await db.select().from(users).orderBy(users.id);
+  return c.json(rows);
+});
 
-    if (url.pathname === "/users" && req.method === "POST") {
-      const body = await req.json().catch(() => null) as null | { email?: string; name?: string };
-      if (!body?.email || !body?.name) {
-        return Response.json({ error: "email and name are required" }, { status: 400 });
-      }
+app.post("/users", async (c) => {
+  const body = await c.req.json<{ email: string; name: string }>();
+  if (!body.email || !body.name) {
+    return c.json({ error: "email and name are required" }, 400);
+  }
+  const inserted = await db.insert(users).values(body).returning();
+  return c.json(inserted[0], 201);
+});
 
-      const inserted = await db.insert(users).values({
-        email: body.email,
-        name: body.name,
-      }).returning();
+// --- Todos ---
+app.get("/todos", async (c) => {
+  const rows = await db.select().from(todos).orderBy(desc(todos.createdAt));
+  return c.json(rows);
+});
 
-      return Response.json(inserted[0], { status: 201 });
-    }
+app.get("/todos/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const rows = await db.select().from(todos).where(eq(todos.id, id));
+  if (rows.length === 0) return c.text("Not found", 404);
+  return c.json(rows[0]);
+});
 
-    const m = url.pathname.match(/^\/users\/(\d+)$/);
-    if (m && req.method === "GET") {
-      const id = Number(m[1]);
-      const row = await db.select().from(users).where(eq(users.id, id));
-      if (row.length === 0) return new Response("Not found", { status: 404 });
-      return Response.json(row[0]);
-    }
+app.post("/todos", async (c) => {
+  const body = await c.req.json<{ title: string }>();
+  if (!body.title) return c.json({ error: "Title is required" }, 400);
 
-    return new Response("Not found", { status: 404 });
-  },
+  const inserted = await db.insert(todos).values({
+    title: body.title,
+  }).returning();
+  return c.json(inserted[0], 201);
+});
+
+app.put("/todos/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  const body = await c.req.json<{ title?: string; completed?: boolean }>();
+
+  const existing = await db.select().from(todos).where(eq(todos.id, id));
+  if (existing.length === 0) return c.text("Not found", 404);
+
+  // Pick only allowed fields to avoid Drizzle error with extra fields
+  const dataToUpdate: Partial<typeof todos.$inferInsert> = {};
+  if (body.title !== undefined) dataToUpdate.title = body.title;
+  if (body.completed !== undefined) dataToUpdate.completed = body.completed;
+
+  if (Object.keys(dataToUpdate).length === 0) {
+    return c.json(existing[0]);
+  }
+
+  const updated = await db.update(todos)
+    .set(dataToUpdate)
+    .where(eq(todos.id, id))
+    .returning();
+
+  return c.json(updated[0]);
+});
+
+app.delete("/todos/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  await db.delete(todos).where(eq(todos.id, id));
+  return c.json({ success: true });
 });
 
 console.log(`API running on http://localhost:${port}`);
 
-process.on("SIGINT", async () => {
-  await sql.end({ timeout: 5 });
-  process.exit(0);
+serve({
+  fetch: app.fetch,
+  port
 });

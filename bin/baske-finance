@@ -1,0 +1,40 @@
+#!/bin/sh
+set -eu
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cmd="${1:-}"; shift || true
+
+case "$cmd" in
+  up)      exec "$ROOT_DIR/deploy/up.sh" "baske-finance" "$@" ;;
+  down)    exec "$ROOT_DIR/deploy/down.sh" "baske-finance" "$@" ;;
+  logs)    exec "$ROOT_DIR/deploy/logs.sh" "baske-finance" "$@" ;;
+  ps)      exec "$ROOT_DIR/deploy/ps.sh" "baske-finance" "$@" ;;
+  restart) exec "$ROOT_DIR/deploy/restart.sh" "baske-finance" "$@" ;;
+  doctor)  exec "$ROOT_DIR/deploy/doctor.sh" "baske-finance" "$@" ;;
+  reset)   exec "$ROOT_DIR/deploy/reset.sh" "baske-finance" "$@" ;;
+  open)    exec "$ROOT_DIR/deploy/open.sh" "baske-finance" "$@" ;;
+  config)  exec "$ROOT_DIR/deploy/config.sh" "baske-finance" "$@" ;;
+  api)
+    sub="${1:-}"; shift || true
+    case "$sub" in add) exec "$ROOT_DIR/deploy/api-add.sh" "baske-finance" "$@" ;; *) echo "Usage: baske-finance api add -e dev|prod <pkg...>"; exit 1;; esac
+    ;;
+  web)
+    sub="${1:-}"; shift || true
+    case "$sub" in add) exec "$ROOT_DIR/deploy/web-add.sh" "baske-finance" "$@" ;; *) echo "Usage: baske-finance web add -e dev|prod <pkg...>"; exit 1;; esac
+    ;;
+  proxy) exec "$ROOT_DIR/deploy/proxy.sh" "baske-finance" "$@" ;;
+  *)
+    echo "Usage:"
+    echo "  baske-finance up      -e dev|prod -s <db api web|all> [--no-build]"
+    echo "  baske-finance down    -e dev|prod"
+    echo "  baske-finance logs    -e dev|prod [-s <db api web|all>]"
+    echo "  baske-finance ps      -e dev|prod"
+    echo "  baske-finance restart -e dev|prod -s <db api web|all>"
+    echo "  baske-finance doctor  -e dev|prod"
+    echo "  baske-finance reset   -e dev|prod [--volumes]"
+    echo "  baske-finance open    -e dev|prod"
+    echo "  baske-finance config  -e dev|prod"
+    echo "  baske-finance api add -e dev|prod <pkg...>"
+    echo "  baske-finance web add -e dev|prod <pkg...>"
+    exit 1
+    ;;
+esac
