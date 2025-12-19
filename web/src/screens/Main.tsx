@@ -7,9 +7,13 @@ import { Input } from "../components/ui/input";
 import { Modal } from "../components/ui/modal";
 import { api } from "../api/client";
 
-type Todo = { id: number; title: string; completed: boolean };
+type Todo = { id: string; title: string; completed: boolean };
+
+import { useAuth } from "../contexts/AuthContext";
+import { LogOut } from "lucide-react";
 
 function Main() {
+    const { user, logout } = useAuth();
     const queryClient = useQueryClient();
     const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -105,24 +109,47 @@ function Main() {
 
             <div className="max-w-4xl mx-auto space-y-8">
                 {/* Header */}
-                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-6">
-                    <div>
-                        <h1 className="text-3xl font-black bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent flex items-center gap-3">
-                            <ListTodo className="w-8 h-8 text-sky-400" />
-                            Mis Tareas
-                        </h1>
-                        <p className="text-slate-400 mt-2">
-                            Gestiona tus actividades pendientes
-                        </p>
+                <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-slate-800 pb-8">
+                    <div className="flex items-center gap-4">
+                        {user?.avatarUrl ? (
+                            <img src={user.avatarUrl} alt={user.name || ""} className="w-12 h-12 rounded-full border-2 border-indigo-500/30" />
+                        ) : (
+                            <div className="w-12 h-12 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-400 font-bold border-2 border-indigo-500/20">
+                                {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase()}
+                            </div>
+                        )}
+                        <div>
+                            <h1 className="text-2xl font-black text-white flex items-center gap-2">
+                                Hola, <span className="text-indigo-400">{user?.name || user?.email?.split('@')[0]}</span>
+                            </h1>
+                            <p className="text-slate-500 text-sm">
+                                Gestiona tus actividades hoy
+                            </p>
+                        </div>
                     </div>
-                    <Button
-                        onClick={openNewTask}
-                        className="bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
-                    >
-                        <Plus className="w-5 h-5 mr-2" />
-                        Nueva Tarea
-                    </Button>
+
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <Button
+                            onClick={openNewTask}
+                            className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"
+                        >
+                            <Plus className="w-5 h-5 mr-2" />
+                            Nueva Tarea
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => logout().then(() => navigate('/login'))}
+                            className="border-slate-800 text-slate-400 hover:bg-slate-900 hover:text-white"
+                        >
+                            <LogOut className="w-5 h-5" />
+                        </Button>
+                    </div>
                 </header>
+
+                <div className="flex items-center gap-2 text-slate-400 text-sm">
+                    <ListTodo className="w-4 h-4 text-sky-400" />
+                    <span className="font-semibold uppercase tracking-widest text-[10px]">Mis Tareas Pendientes</span>
+                </div>
 
                 {/* List */}
                 <div className="grid gap-4">

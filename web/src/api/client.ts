@@ -3,25 +3,29 @@ import { createHttpClient } from "./http";
 
 const http = createHttpClient({
     baseUrl: import.meta.env.VITE_API_URL,
-    getToken: () => localStorage.getItem("token"),
 });
 
+export type User = {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+};
+
 export const api = {
-    users: {
-        me: () => http.get<{ id: string; email: string }>("/users/me"),
-        list: (page: number) => http.get<{ items: any[]; total: number }>("/users", { params: { page } }),
-    },
     auth: {
-        login: (email: string, password: string) =>
-            http.post<{ token: string }>("/auth/login", { email, password }),
+        me: () => http.get<User | null>("/auth/me"),
+        register: (data: any) => http.post<User>("/auth/register", data),
+        login: (data: any) => http.post<User>("/auth/login", data),
+        logout: () => http.post<{ success: boolean }>("/auth/logout"),
     },
     todos: {
         list: () => http.get<Todo[]>("/todos"),
-        get: (id: number) => http.get<Todo>(`/todos/${id}`),
+        get: (id: string) => http.get<Todo>(`/todos/${id}`),
         create: (title: string) => http.post<Todo>("/todos", { title }),
-        update: (id: number, data: Partial<Todo>) => http.put<Todo>(`/todos/${id}`, data),
-        delete: (id: number) => http.del<{ success: boolean }>(`/todos/${id}`),
+        update: (id: string, data: Partial<Todo>) => http.put<Todo>(`/todos/${id}`, data),
+        delete: (id: string) => http.del<{ success: boolean }>(`/todos/${id}`),
     },
 };
 
-type Todo = { id: number; title: string; completed: boolean };
+type Todo = { id: string; title: string; completed: boolean };

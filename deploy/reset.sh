@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
-ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$(dirname "$0")/.."
+ROOT_DIR="$(pwd)"
 . "$ROOT_DIR/deploy/_lib.sh"
 
 ENV=""

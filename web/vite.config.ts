@@ -12,6 +12,6 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: ['micabrito.baske.cl',],
+    allowedHosts: ['finance.baske.cl',],
   },
 })

@@ -5,16 +5,24 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function waitForDb(url: string) {
-  const maxAttempts = 25;
+  const maxAttempts = 30;
   for (let i = 1; i <= maxAttempts; i++) {
+    let sql;
     try {
-      const sql = postgres(url, { max: 1 });
+      console.log(`[migrate] connection attempt ${i}...`);
+      sql = postgres(url, {
+        max: 1,
+        connect_timeout: 5, // 5 seconds timeout
+      });
       await sql`select 1`;
+      console.log(`[migrate] connection successful`);
       await sql.end({ timeout: 2 });
       return;
-    } catch (e) {
+    } catch (e: any) {
+      console.log(`[migrate] attempt ${i} failed: ${e.message || e}`);
+      if (sql) await sql.end().catch(() => { });
       if (i === maxAttempts) throw e;
-      await sleep(800);
+      await sleep(2000);
     }
   }
 }

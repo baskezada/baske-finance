@@ -24,6 +24,14 @@ env_file() {
   esac
 }
 
+compose_files() {
+  case "$1" in
+    dev) echo "-f docker-compose.yml -f docker-compose.dev.yml" ;;
+    prod) echo "-f docker-compose.yml -f docker-compose.prod.yml" ;;
+    *) die "env desconocido $1" ;;
+  esac
+}
+
 load_config() {
   root="$1"
   [ -f "$root/project.config" ] || die "Falta project.config"

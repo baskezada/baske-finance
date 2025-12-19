@@ -14,9 +14,8 @@ type HttpOptions = RequestInit & { params?: Record<string, string | number | boo
 
 export function createHttpClient(opts: {
     baseUrl: string;
-    getToken?: () => string | null;
 }) {
-    const { baseUrl, getToken } = opts;
+    const { baseUrl } = opts;
 
     async function request<T>(path: string, options: HttpOptions = {}): Promise<T> {
         const url = new URL(path, baseUrl);
@@ -25,12 +24,11 @@ export function createHttpClient(opts: {
             Object.entries(options.params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
         }
 
-        const token = getToken?.();
         const res = await fetch(url.toString(), {
             ...options,
+            credentials: "include",
             headers: {
                 "Content-Type": "application/json",
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
                 ...(options.headers ?? {}),
             },
         });

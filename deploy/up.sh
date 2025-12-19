@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+cd "$(dirname "$0")/.."
 
 usage() {
   echo "Usage:"
@@ -26,7 +27,7 @@ REQ_SERVICES=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    -env)
+    -e|-env)
       [ $# -ge 2 ] || usage
       ENV_KIND="$2"
       shift 2
