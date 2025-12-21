@@ -6,6 +6,8 @@ import { users } from "./schema";
 import { eq, and } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
+import { logger } from "./logger";
+import { gmailService } from "./gmail-service";
 
 const JWT_SECRET = process.env.JWT_SECRET || "change-me-at-all-costs";
 const COOKIE_NAME = "baske_session";
@@ -24,6 +26,9 @@ export interface OAuthProfile {
     email: string;
     name?: string;
     avatarUrl?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    tokenExpiry?: Date;
 }
 
 interface OAuthStrategy {
@@ -45,8 +50,12 @@ class GoogleStrategy implements OAuthStrategy {
     getLoginUrl(): string {
         return this.client.generateAuthUrl({
             access_type: "offline",
-            scope: ["https://www.googleapis.com/auth/userinfo.profile", "https://www.googleapis.com/auth/userinfo.email"],
-            prompt: "select_account"
+            scope: [
+                "https://www.googleapis.com/auth/userinfo.profile",
+                "https://www.googleapis.com/auth/userinfo.email",
+                "https://www.googleapis.com/auth/gmail.readonly"
+            ],
+            prompt: "consent" // Force consent to ensure we get a refresh token
         });
     }
 
@@ -54,7 +63,6 @@ class GoogleStrategy implements OAuthStrategy {
         const { tokens } = await this.client.getToken(code);
         this.client.setCredentials(tokens);
 
-        // In a real scenario, we'd use the id_token or request profile
         const ticket = await this.client.verifyIdToken({
             idToken: tokens.id_token!,
             audience: process.env.GOOGLE_CLIENT_ID,
@@ -70,6 +78,9 @@ class GoogleStrategy implements OAuthStrategy {
             email: payload.email,
             name: payload.name,
             avatarUrl: payload.picture,
+            accessToken: tokens.access_token ?? undefined,
+            refreshToken: tokens.refresh_token ?? undefined,
+            tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
         };
     }
 }
@@ -145,12 +156,17 @@ export const authController = {
         return c.json(session);
     },
 
+
     async me(c: Context) {
+        logger.info("meAA@");
+        logger.info("me", c.req.cookie);
         const token = getCookie(c, COOKIE_NAME);
+        logger.info("token", token);
         if (!token) return c.json(null, 401);
 
         try {
             const payload = await verify(token, JWT_SECRET) as UserSession;
+            logger.info("payload", payload);
             return c.json(payload);
         } catch {
             return c.json(null, 401);
@@ -191,22 +207,35 @@ export const authController = {
                     avatarUrl: profile.avatarUrl,
                     oauthProvider: provider,
                     oauthId: profile.id,
+                    accessToken: profile.accessToken,
+                    refreshToken: profile.refreshToken,
+                    tokenExpiry: profile.tokenExpiry,
                 }).returning();
-            } else if (!user.oauthProvider) {
-                // Link existing email account to OAuth
+            } else {
+                // Update tokens and profile info
                 [user] = await db.update(users).set({
                     oauthProvider: provider,
                     oauthId: profile.id,
-                    avatarUrl: user.avatarUrl || profile.avatarUrl,
+                    name: profile.name || user.name,
+                    avatarUrl: profile.avatarUrl || user.avatarUrl,
+                    accessToken: profile.accessToken || user.accessToken,
+                    refreshToken: profile.refreshToken || user.refreshToken,
+                    tokenExpiry: profile.tokenExpiry || user.tokenExpiry,
                 }).where(eq(users.id, user.id)).returning();
             }
 
             await createSession(c, user);
 
-            const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
-            return c.redirect(`${frontendUrl}/main`);
+            // Setup real-time watch
+            if (provider === "google") {
+                gmailService.setupWatch(user.id).catch(err => {
+                    logger.error({ err, userId: user.id }, "Failed to setup initial Gmail watch");
+                });
+            }
+
+            return c.redirect(`${process.env.FRONTEND_URL}/`);
         } catch (err) {
-            console.error("OAuth Callback Error:", err);
+            logger.error({ err, provider }, "OAuth Callback Error");
             return c.redirect("/login?error=oauth_failed");
         }
     }

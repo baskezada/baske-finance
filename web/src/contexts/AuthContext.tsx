@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext } from "react";
 import { api, type User } from "../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface AuthContextType {
     user: User | null;
@@ -12,40 +13,39 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
 
-    useEffect(() => {
-        const checkAuth = async () => {
+    const { data: user, isLoading: loading } = useQuery({
+        queryKey: ["auth-me"],
+        queryFn: async () => {
             try {
-                const currentUser = await api.auth.me();
-                setUser(currentUser);
+                return await api.auth.me();
             } catch (err) {
-                setUser(null);
-            } finally {
-                setLoading(false);
+                return null;
             }
-        };
-        checkAuth();
-    }, []);
+        },
+        retry: false,
+        staleTime: Infinity,
+    });
 
     const login = async (data: any) => {
         const loggedUser = await api.auth.login(data);
-        setUser(loggedUser);
+        queryClient.setQueryData(["auth-me"], loggedUser);
     };
 
     const register = async (data: any) => {
         const registeredUser = await api.auth.register(data);
-        setUser(registeredUser);
+        queryClient.setQueryData(["auth-me"], registeredUser);
     };
 
     const logout = async () => {
         await api.auth.logout();
-        setUser(null);
+        queryClient.setQueryData(["auth-me"], null);
+        queryClient.clear();
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+        <AuthContext.Provider value={{ user: user ?? null, loading, login, register, logout }}>
             {children}
         </AuthContext.Provider>
     );

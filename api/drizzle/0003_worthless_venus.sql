@@ -1,0 +1,2 @@
+ALTER TABLE "transactions" ADD COLUMN "transaction_date" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_raw_email_id_unique" UNIQUE("raw_email_id");

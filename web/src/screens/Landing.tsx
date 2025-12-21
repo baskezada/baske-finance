@@ -12,7 +12,7 @@ export default function Landing() {
             <nav className="fixed w-full z-50 p-6 backdrop-blur-md bg-slate-950/50 border-b border-slate-800/50">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
                     <div className="text-2xl font-black bg-gradient-to-r from-indigo-400 to-sky-400 bg-clip-text text-transparent">
-                        Baske.
+                        BaskeFinance
                     </div>
                     <div className="flex gap-4">
                         <Link to="/login">
@@ -30,13 +30,7 @@ export default function Landing() {
             {/* Hero Section */}
             <main className="pt-32 pb-20 px-6">
                 <div className="max-w-5xl mx-auto text-center space-y-8">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-medium animate-fade-in">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
-                        </span>
-                        Nueva integración con Gmail API
-                    </div>
+
 
                     <h1 className="text-6xl md:text-7xl font-black tracking-tight text-white leading-tight">
                         Tus finanzas, <br />

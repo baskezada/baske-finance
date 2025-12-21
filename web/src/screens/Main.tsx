@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ListTodo, Loader2, AlertCircle, Plus, Pencil, Save } from "lucide-react";
+import { CheckCircle2, ListTodo, Loader2, AlertCircle, Plus, Pencil, Save, DollarSign } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Modal } from "../components/ui/modal";
@@ -129,6 +129,14 @@ function Main() {
                     </div>
 
                     <div className="flex items-center gap-3 w-full md:w-auto">
+                        <Button
+                            variant="outline"
+                            onClick={() => navigate('/transactions')}
+                            className="flex-1 md:flex-none border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
+                        >
+                            <DollarSign className="w-5 h-5 mr-2" />
+                            Transacciones
+                        </Button>
                         <Button
                             onClick={openNewTask}
                             className="flex-1 md:flex-none bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20"

@@ -8,6 +8,48 @@
       "when": 1766115290055,
       "tag": "0000_special_iceman",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1766275708811,
+      "tag": "0001_tidy_redwing",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766277332877,
+      "tag": "0002_lyrical_molecule_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1766280601181,
+      "tag": "0003_worthless_venus",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1766280981338,
+      "tag": "0004_modern_whistler",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1766284736640,
+      "tag": "0005_messy_bug",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1766285332414,
+      "tag": "0006_groovy_scarlet_spider",
+      "breakpoints": true
     }
   ]
 }

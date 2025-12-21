@@ -6,13 +6,13 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { api } from "../api/client";
 
-type Todo = { id: number; title: string; completed: boolean };
+type Todo = { id: string; title: string; completed: boolean };
 
 export default function TaskDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const taskId = Number(id);
+    const taskId = id;
 
     const [title, setTitle] = useState("");
     const [isCompleted, setIsCompleted] = useState(false);
@@ -37,7 +37,7 @@ export default function TaskDetail() {
 
     // Update Mutation
     const updateMutation = useMutation({
-        mutationFn: (data: { id: number; title: string; completed: boolean }) =>
+        mutationFn: (data: { id: string; title: string; completed: boolean }) =>
             api.todos.update(data.id, { title: data.title, completed: data.completed }),
         onSuccess: (updatedItem, variables) => {
             // Robust merge of variables + response

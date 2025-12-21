@@ -4,6 +4,7 @@ import Login from './screens/Login'
 import Register from './screens/Register'
 import Main from './screens/Main'
 import TaskDetail from './screens/TaskDetail'
+import Transactions from './screens/Transactions'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -29,7 +30,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     </div>
   )
 
-  if (user) return <Navigate to="/main" replace />
+  if (user) return <Navigate to="/dashboard" replace />
 
   return <>{children}</>
 }
@@ -54,17 +55,18 @@ function App() {
           </PublicRoute>
         } />
 
-        <Route path="/main" element={
+        <Route path="/dashboard" element={
           <ProtectedRoute>
-            <Main />
+            <Transactions />
           </ProtectedRoute>
         } />
 
-        <Route path="/task/:id" element={
+        {/* The /transactions route is now the root, so this specific route is redundant unless it's for a different purpose */}
+        {/* <Route path="/transactions" element={
           <ProtectedRoute>
-            <TaskDetail />
+            <Transactions />
           </ProtectedRoute>
-        } />
+        } /> */}
       </Routes>
     </AuthProvider>
   )
