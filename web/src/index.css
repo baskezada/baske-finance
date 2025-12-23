@@ -48,6 +48,13 @@
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+
+  /* Theme colors - defaults to emerald */
+  --color-primary: #10b981;
+  --color-primary-light: #34d399;
+  --color-primary-dark: #059669;
+  --color-accent: #3b82f6;
+  --color-accent-light: #60a5fa;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -121,4 +128,552 @@
   body {
     @apply bg-slate-950 text-foreground;
   }
+
+  /* Background pattern support */
+  html.has-pattern {
+
+    background-image: var(--background-pattern);
+    background-repeat: repeat;
+    background-attachment: fixed;
+    /* haz el patrón más grande */
+    background-size: 320px 320px;
+    /* antes era auto */
+  }
+
+  html.has-pattern body {
+    background: transparent !important;
+  }
+
+  html.has-pattern .bg-slate-950 {
+    background: transparent !important;
+  }
+}
+
+@layer utilities {
+
+  /* Theme-aware text colors */
+  .text-primary {
+    color: var(--color-primary);
+  }
+
+  .text-primary-light {
+    color: var(--color-primary-light);
+  }
+
+  .text-primary-dark {
+    color: var(--color-primary-dark);
+  }
+
+  .text-accent {
+    color: var(--color-accent);
+  }
+
+  .text-accent-light {
+    color: var(--color-accent-light);
+  }
+
+  /* Theme-aware background colors */
+  .bg-primary {
+    background-color: var(--color-primary);
+  }
+
+  .bg-primary-light {
+    background-color: var(--color-primary-light);
+  }
+
+  .bg-primary-dark {
+    background-color: var(--color-primary-dark);
+  }
+
+  .bg-accent {
+    background-color: var(--color-accent);
+  }
+
+  .bg-accent-light {
+    background-color: var(--color-accent-light);
+  }
+
+  /* Theme-aware backgrounds with opacity */
+  .bg-primary\/10 {
+    background-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  }
+
+  .bg-primary\/20 {
+    background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  }
+
+  .bg-primary\/30 {
+    background-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  }
+
+  .bg-accent\/10 {
+    background-color: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  }
+
+  .bg-accent\/20 {
+    background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  }
+
+  .bg-accent\/30 {
+    background-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+
+  /* Theme-aware borders */
+  .border-primary {
+    border-color: var(--color-primary);
+  }
+
+  .border-primary\/20 {
+    border-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  }
+
+  .border-primary\/30 {
+    border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  }
+
+  .border-primary\/50 {
+    border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+  }
+
+  .border-accent {
+    border-color: var(--color-accent);
+  }
+
+  .border-accent\/20 {
+    border-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  }
+
+  .border-accent\/30 {
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  }
+
+  .border-accent\/50 {
+    border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  }
+
+  /* Hover states */
+  .hover\:bg-primary:hover {
+    background-color: var(--color-primary);
+  }
+
+  .hover\:bg-primary-light:hover {
+    background-color: var(--color-primary-light);
+  }
+
+  .hover\:text-primary:hover {
+    color: var(--color-primary);
+  }
+
+  .hover\:border-primary:hover {
+    border-color: var(--color-primary);
+  }
+
+  .hover\:border-primary\/30:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  }
+
+  .hover\:border-primary\/50:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+  }
+}
+
+/* Light mode styles */
+.light-mode {
+  --bg-primary: #f1f5f9;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e2e8f0;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --text-primary: #0f172a;
+  --text-secondary: #1e293b;
+  --text-tertiary: #475569;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  --border-color: #e2e8f0;
+  --border-hover: #94a3b8;
+  --border-strong: #64748b;
+}
+
+/* Background colors */
+.light-mode .bg-slate-950 {
+  background-color: var(--bg-primary) !important;
+}
+
+.light-mode .bg-slate-900\/30,
+.light-mode .bg-slate-900\/50 {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.05) !important;
+}
+
+/* Removed - specific card styling below */
+
+.light-mode .bg-slate-900 {
+  background-color: var(--bg-secondary) !important;
+}
+
+.light-mode .bg-slate-800 {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.light-mode .bg-slate-950\/80 {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(16px);
+  border-bottom-color: var(--border-color) !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05) !important;
+}
+
+.light-mode .bg-slate-800\/20 {
+  background-color: rgba(248, 250, 252, 0.9) !important;
+}
+
+/* Text colors */
+.light-mode .text-white {
+  color: var(--text-primary) !important;
+}
+
+.light-mode .text-slate-200 {
+  color: var(--text-secondary) !important;
+}
+
+.light-mode .text-slate-300 {
+  color: var(--text-tertiary) !important;
+}
+
+.light-mode .text-slate-400 {
+  color: var(--text-muted) !important;
+}
+
+.light-mode .text-slate-500 {
+  color: var(--text-light) !important;
+}
+
+.light-mode .text-slate-600 {
+  color: var(--text-tertiary) !important;
+}
+
+.light-mode .text-red-400 {
+  color: #dc2626 !important;
+}
+
+.light-mode .text-emerald-400,
+.light-mode .text-emerald-500 {
+  color: #059669 !important;
+}
+
+/* Border colors */
+.light-mode .border-slate-800 {
+  border-color: var(--border-color) !important;
+}
+
+.light-mode .border-slate-700 {
+  border-color: var(--border-color) !important;
+}
+
+.light-mode .border-slate-700\/50 {
+  border-color: rgba(226, 232, 240, 0.8) !important;
+}
+
+.light-mode .hover\:border-slate-600:hover {
+  border-color: var(--border-hover) !important;
+}
+
+.light-mode .border-white\/50 {
+  border-color: var(--border-hover) !important;
+}
+
+.light-mode .border-slate-300 {
+  border-color: var(--border-color) !important;
+}
+
+/* Hover states */
+.light-mode .hover\:bg-slate-800\/50:hover {
+  background-color: var(--bg-card-hover) !important;
+}
+
+.light-mode .hover\:bg-slate-900:hover {
+  background-color: var(--bg-card-hover) !important;
+}
+
+.light-mode .hover\:bg-slate-800:hover {
+  background-color: var(--bg-tertiary) !important;
+}
+
+.light-mode .hover\:text-white:hover {
+  color: var(--text-primary) !important;
+}
+
+.light-mode .group:hover .group-hover\:opacity-100 {
+  opacity: 1 !important;
+}
+
+.light-mode tr.group:hover {
+  background-color: rgba(241, 245, 249, 0.5) !important;
+}
+
+/* Special elements */
+.light-mode .divide-slate-800> :not([hidden])~ :not([hidden]) {
+  border-color: var(--border-color) !important;
+}
+
+/* Charts and graphs - make grid lines visible */
+.light-mode .recharts-cartesian-grid line {
+  stroke: #e2e8f0 !important;
+}
+
+.light-mode .recharts-xaxis line,
+.light-mode .recharts-yaxis line {
+  stroke: #cbd5e1 !important;
+}
+
+.light-mode .recharts-xaxis text,
+.light-mode .recharts-yaxis text {
+  fill: #64748b !important;
+}
+
+/* Tooltip in light mode */
+.light-mode .bg-slate-800\/95 {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.15), 0 4px 6px -4px rgb(0 0 0 / 0.1) !important;
+}
+
+.light-mode .border-slate-700\/50 {
+  border-color: var(--border-color) !important;
+}
+
+/* Selection and loading states */
+.light-mode .selection\:bg-emerald-500\/30::selection {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+/* Modal overlays */
+.light-mode .bg-slate-900\/50 {
+  background-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Empty states */
+.light-mode .opacity-20 {
+  opacity: 0.25 !important;
+}
+
+/* Loading spinners */
+.light-mode .animate-spin {
+  border-top-color: var(--text-tertiary) !important;
+  border-bottom-color: var(--text-tertiary) !important;
+}
+
+/* Tables */
+.light-mode table tbody tr {
+  border-bottom-color: var(--border-color) !important;
+}
+
+.light-mode table thead tr {
+  background-color: var(--bg-tertiary) !important;
+  border-bottom-color: var(--border-color) !important;
+}
+
+/* Inputs and selects */
+.light-mode select,
+.light-mode input[type="text"],
+.light-mode input[type="date"],
+.light-mode input[type="number"] {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.light-mode select:focus,
+.light-mode input:focus {
+  border-color: var(--border-hover) !important;
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Buttons */
+.light-mode button.text-slate-400 {
+  color: var(--text-muted) !important;
+}
+
+.light-mode .bg-red-500\/20 {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+}
+
+.light-mode .border-red-500\/30 {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.light-mode .hover\:bg-red-500\/30:hover {
+  background-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+.light-mode .hover\:border-red-500\/50:hover {
+  border-color: rgba(239, 68, 68, 0.5) !important;
+}
+
+/* Category and Bank Cards in light mode */
+.light-mode .bg-slate-800\/30 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+.light-mode .bg-slate-800\/30:hover,
+.light-mode .hover\:bg-slate-800\/50:hover {
+  background-color: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.08) !important;
+}
+
+/* Card borders in light mode - make them more visible */
+.light-mode .border.rounded-xl {
+  border-width: 1.5px !important;
+}
+
+/* Category/Bank card text colors in light mode */
+.light-mode .text-sm.font-bold,
+.light-mode .text-lg.font-black {
+  color: var(--text-primary) !important;
+}
+
+/* Percentage text in cards */
+.light-mode .text-xs.text-slate-500 {
+  color: var(--text-muted) !important;
+}
+
+/* Border-t in cards */
+.light-mode .border-t.border-slate-800 {
+  border-top-color: var(--border-color) !important;
+}
+
+/* Dark mode styles (default) */
+.dark-mode {
+  /* Already using default Tailwind dark colors */
+}
+
+/* React Grid Layout styles */
+.react-grid-layout {
+  position: relative;
+  transition: height 200ms ease;
+}
+
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+}
+
+.react-grid-item img {
+  pointer-events: none;
+  user-select: none;
+}
+
+.react-grid-item>.react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+}
+
+.react-grid-item>.react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 5px;
+  height: 5px;
+  border-right: 2px solid rgba(148, 163, 184, 0.4);
+  border-bottom: 2px solid rgba(148, 163, 184, 0.4);
+}
+
+.react-grid-item>.react-resizable-handle-sw {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+  transform: rotate(90deg);
+}
+
+.react-grid-item>.react-resizable-handle-se {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+}
+
+.react-grid-item>.react-resizable-handle-nw {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+  transform: rotate(180deg);
+}
+
+.react-grid-item>.react-resizable-handle-ne {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+  transform: rotate(270deg);
+}
+
+.react-grid-item>.react-resizable-handle-w,
+.react-grid-item>.react-resizable-handle-e {
+  top: 50%;
+  margin-top: -10px;
+  cursor: ew-resize;
+}
+
+.react-grid-item>.react-resizable-handle-w {
+  left: 0;
+  transform: rotate(135deg);
+}
+
+.react-grid-item>.react-resizable-handle-e {
+  right: 0;
+  transform: rotate(315deg);
+}
+
+.react-grid-item>.react-resizable-handle-n,
+.react-grid-item>.react-resizable-handle-s {
+  left: 50%;
+  margin-left: -10px;
+  cursor: ns-resize;
+}
+
+.react-grid-item>.react-resizable-handle-n {
+  top: 0;
+  transform: rotate(225deg);
+}
+
+.react-grid-item>.react-resizable-handle-s {
+  bottom: 0;
+  transform: rotate(45deg);
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: rgba(16, 185, 129, 0.2);
+  border: 2px dashed rgba(16, 185, 129, 0.6);
+  border-radius: 1rem;
+  opacity: 0.6;
+  transition-duration: 100ms;
+  z-index: 2;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+.react-grid-item.react-draggable-dragging {
+  opacity: 0.7;
+  z-index: 100;
+}
+
+.react-grid-item.resizing {
+  opacity: 0.8;
+  z-index: 100;
+}
+
+/* Light mode adjustments */
+.light-mode .react-grid-item>.react-resizable-handle::after {
+  border-right-color: rgba(100, 116, 139, 0.5);
+  border-bottom-color: rgba(100, 116, 139, 0.5);
+}
+
+.light-mode .react-grid-item.react-grid-placeholder {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.4);
 }

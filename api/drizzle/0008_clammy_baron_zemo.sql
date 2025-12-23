@@ -1,0 +1,1 @@
+ALTER TABLE "transactions" ADD COLUMN "exchange_rate" text;

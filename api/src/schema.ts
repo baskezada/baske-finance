@@ -29,12 +29,14 @@ export const transactions = pgTable("transactions", {
   bankId: uuid("bank_id").notNull().references(() => banks.id, { onDelete: "cascade" }),
   amount: text("amount").notNull(),
   currency: text("currency").notNull().default("USD"),
+  exchangeRate: text("exchange_rate"), // Tasa de cambio USD a CLP del día de la transacción
   category: text("category"),
   description: text("description"),
   cardLastFour: text("card_last_four"),
   transactionType: text("transaction_type").notNull().default("cargo"), // "cargo" o "abono"
   rawEmailId: text("raw_email_id").unique(),
   transactionDate: timestamp("transaction_date", { withTimezone: true, mode: 'date' }),
+  purchaseSummary: text("purchase_summary"), // Markdown summary from purchase confirmation emails
   createdAt: timestamp("created_at", { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 });

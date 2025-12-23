@@ -1,8 +1,8 @@
 import { google } from "googleapis";
 import crypto from "crypto";
 import { db } from "./db";
-import { users, transactions, importJobs } from "./schema";
-import { eq, and } from "drizzle-orm";
+import { users, transactions, importJobs, banks } from "./schema";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
 import { logger } from "./logger";
 import { aiService } from "./ai-service";
 
@@ -18,6 +18,80 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 export const gmailService = {
+    async matchPurchaseToTransaction(
+        userId: string,
+        purchaseAmount: number,
+        purchaseDate: Date,
+        purchaseSummary: string
+    ) {
+        // Calculate time window: ±1 day from purchase date
+        const oneDayInMs = 24 * 60 * 60 * 1000;
+        const startWindow = new Date(purchaseDate.getTime() - oneDayInMs);
+        const endWindow = new Date(purchaseDate.getTime() + oneDayInMs);
+
+        logger.info(
+            {
+                userId,
+                purchaseAmount,
+                purchaseDate,
+                startWindow,
+                endWindow,
+            },
+            "Searching for matching transaction in time window"
+        );
+
+        // Find transactions within the time window with matching amount
+        const matchingTransactions = await db
+            .select()
+            .from(transactions)
+            .where(
+                and(
+                    eq(transactions.userId, userId),
+                    gte(transactions.transactionDate, startWindow),
+                    lte(transactions.transactionDate, endWindow),
+                    sql`CAST(${transactions.amount} AS DECIMAL) = ${purchaseAmount}`
+                )
+            );
+
+        if (matchingTransactions.length > 0) {
+            logger.info(
+                {
+                    userId,
+                    matchCount: matchingTransactions.length,
+                    transactionIds: matchingTransactions.map(t => t.id),
+                },
+                "Found matching transaction(s) for purchase"
+            );
+
+            // Update the first matching transaction with the purchase summary
+            const matchedTransaction = matchingTransactions[0];
+            await db
+                .update(transactions)
+                .set({
+                    purchaseSummary,
+                    updatedAt: new Date(),
+                })
+                .where(eq(transactions.id, matchedTransaction.id));
+
+            logger.info(
+                {
+                    userId,
+                    transactionId: matchedTransaction.id,
+                },
+                "Updated transaction with purchase summary"
+            );
+
+            return matchedTransaction;
+        }
+
+        logger.info(
+            { userId, purchaseAmount, purchaseDate },
+            "No matching transaction found for purchase"
+        );
+
+        return null;
+    },
+
     async setupWatch(userId: string) {
         const [user] = await db.select().from(users).where(eq(users.id, userId));
         if (!user || !user.refreshToken) {
@@ -117,12 +191,6 @@ export const gmailService = {
             const subject = msg.data.payload?.headers?.find(h => h.name === "Subject")?.value || "";
             const from = msg.data.payload?.headers?.find(h => h.name === "From")?.value || "";
 
-            const isLikely = await aiService.checkIfLikelyTransaction(subject, from);
-            if (!isLikely) {
-                logger.info({ userId: user.id, messageId, subject }, "Email discarded by pre-filtering.");
-                return;
-            }
-
             // Extract body (prefer plain text)
             let body = msg.data.snippet || "";
             const part = msg.data.payload?.parts?.find(p => p.mimeType === "text/plain");
@@ -130,37 +198,96 @@ export const gmailService = {
                 body = Buffer.from(part.body.data, "base64").toString();
             }
 
-            const parsed = await aiService.parseEmailTransaction(subject, from, body);
+            // First, classify the email
+            const classification = await this.classifyEmail(subject, from);
 
-            if (parsed) {
-                logger.info({ userId: user.id, messageId, parsed }, "Transaction parsed! Saving to database...");
+            if (classification === "BANK_TRANSACTION") {
+                logger.info({ userId: user.id, messageId, subject }, "Email classified as BANK_TRANSACTION");
 
-                // TODO: Implement bank validation before inserting
-                // Need to match parsed.bankName against banks table
-                // If no match found, skip this transaction
-                logger.warn({ userId: user.id, messageId, bankName: parsed.bankName }, "Gmail import temporarily disabled - need bank validation");
+                const parsed = await aiService.parseEmailTransaction(subject, from, body);
 
-                /*
-                await db.insert(transactions).values({
-                    userId: user.id,
-                    bankId: parsed.bankId, // Need to resolve bankName to bankId first
-                    amount: parsed.amount?.toString() || "0",
-                    currency: parsed.currency || "USD",
-                    category: parsed.category,
-                    description: parsed.description,
-                    cardLastFour: parsed.cardLastFour,
-                    transactionDate: parsed.transactionDate ? new Date(parsed.transactionDate) : null,
-                    transactionType: parsed.transactionType || "cargo",
-                    rawEmailId: messageId,
-                }).onConflictDoNothing();
-                */
+                if (parsed) {
+                    logger.info({ userId: user.id, messageId, parsed }, "Transaction parsed! Saving to database...");
 
-                logger.info({ userId: user.id, messageId }, "Transaction processed (Gmail import disabled)");
+                    logger.warn({ userId: user.id, messageId, bankId: parsed.bankId }, "Gmail import temporarily disabled - need bank validation");
+
+                    await db.insert(transactions).values({
+                        userId: user.id,
+                        bankId: parsed.bankId,
+                        amount: parsed.amount?.toString() || "0",
+                        currency: parsed.currency || "USD",
+                        category: parsed.category,
+                        description: parsed.description,
+                        cardLastFour: parsed.cardLastFour,
+                        transactionDate: parsed.transactionDate ? new Date(parsed.transactionDate) : null,
+                        transactionType: parsed.transactionType || "cargo",
+                        rawEmailId: messageId,
+                    }).onConflictDoNothing();
+
+                    logger.info({ userId: user.id, messageId }, "Transaction processed (Gmail import disabled)");
+                } else {
+                    logger.info({ userId: user.id, messageId }, "Email is not a bank transaction, skipping.");
+                }
+            } else if (classification === "PURCHASE_INFORMATION") {
+                logger.info({ userId: user.id, messageId, subject }, "Email classified as PURCHASE_INFORMATION");
+
+                const purchaseInfo = await aiService.parsePurchaseInformation(subject, from, body);
+
+                if (purchaseInfo && purchaseInfo.amount && purchaseInfo.purchaseDate && purchaseInfo.summary) {
+                    logger.info(
+                        { userId: user.id, messageId, purchaseInfo },
+                        "Purchase information parsed! Searching for matching transaction..."
+                    );
+
+                    await this.matchPurchaseToTransaction(
+                        user.id,
+                        purchaseInfo.amount,
+                        new Date(purchaseInfo.purchaseDate),
+                        purchaseInfo.summary
+                    );
+                } else {
+                    logger.info({ userId: user.id, messageId }, "Could not extract complete purchase information.");
+                }
             } else {
-                logger.info({ userId: user.id, messageId }, "Email is not a bank transaction, skipping.");
+                logger.info({ userId: user.id, messageId, subject, classification }, "Email discarded by classification.");
             }
         } catch (error) {
             logger.error({ userId: user.id, messageId, error }, "Error processing email structure");
+        }
+    },
+
+    async classifyEmail(subject: string, from: string): Promise<string> {
+        if (!process.env.GEMINI_API_KEY) return "OTHER";
+
+        const prompt = `
+
+            Classify the following email header (subject and sender) into one of three categories:
+
+            "BANK_TRANSACTION", "PURCHASE_INFORMATION", "OTHER".
+
+            Respond only with one of the exact phrases: "BANK_TRANSACTION", "PURCHASE_INFORMATION", "OTHER".
+
+            Subject: ${subject}
+            From: ${from}
+        `;
+
+        try {
+            const genAI = new (await import("@google/generative-ai")).GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+            const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+            const result = await model.generateContent(prompt);
+            const text = result.response.text().trim().toUpperCase();
+
+            logger.info(
+                { subject, from, classification: text },
+                "Email classification result"
+            );
+
+            return text.includes("BANK_TRANSACTION") ? "BANK_TRANSACTION"
+                : text.includes("PURCHASE_INFORMATION") ? "PURCHASE_INFORMATION"
+                : "OTHER";
+        } catch (error) {
+            logger.error({ error }, "Error in email classification");
+            return "OTHER";
         }
     },
 

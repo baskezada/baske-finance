@@ -19,11 +19,13 @@ export type Transaction = {
     bankName: string | null;
     amount: string;
     currency: string;
+    exchangeRate: string | null;
     category: string | null;
     description: string | null;
     cardLastFour: string | null;
     transactionDate: string | null;
     transactionType: 'cargo' | 'abono';
+    purchaseSummary: string | null;
     createdAt: string;
 };
 
@@ -60,8 +62,10 @@ export const api = {
         delete: (id: string) => http.del<{ success: boolean }>(`/todos/${id}`),
     },
     transactions: {
-        list: (filters?: { startDate?: string; endDate?: string; category?: string; bankName?: string }) => {
+        list: (filters?: { month?: string; year?: string; startDate?: string; endDate?: string; category?: string; bankName?: string }) => {
             const params = new URLSearchParams();
+            if (filters?.month) params.append('month', filters.month);
+            if (filters?.year) params.append('year', filters.year);
             if (filters?.startDate) params.append('startDate', filters.startDate);
             if (filters?.endDate) params.append('endDate', filters.endDate);
             if (filters?.category) params.append('category', filters.category);
@@ -94,6 +98,20 @@ export const api = {
         },
         confirmExcelImport: (transactions: any[], bankId: string) =>
             http.post<{ success: boolean; imported: number }>("/transactions/import-excel/confirm", { transactions, bankId }),
+
+        uploadEml: async (file: File) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/gmail/upload-eml`, {
+                method: "POST",
+                credentials: "include",
+                body: formData,
+            });
+            if (!res.ok) throw new Error("Failed to upload EML");
+            return res.json();
+        },
+        confirmEmlImport: (type: string, parsed: any) =>
+            http.post<{ success: boolean; message: string }>("/auth/gmail/upload-eml/confirm", { type, parsed }),
     },
 };
 

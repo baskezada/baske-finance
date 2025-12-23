@@ -1,0 +1,1 @@
+ALTER TABLE "transactions" ADD COLUMN "purchase_summary" text;
