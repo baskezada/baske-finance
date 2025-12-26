@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { logger } from "./logger";
 import { db } from "./db";
-import { banks } from "./schema";
+import { banks, categories } from "./schema";
+import { eq } from "drizzle-orm";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -68,7 +69,8 @@ export const aiService = {
   async parseEmailTransaction(
     subject: string,
     from: string,
-    content: string
+    content: string,
+    userId?: string
   ): Promise<ParsedTransaction | null> {
     if (!process.env.GEMINI_API_KEY) {
       logger.warn("GEMINI_API_KEY is not set. Skipping AI parsing.");
@@ -79,7 +81,14 @@ export const aiService = {
       .select({ id: banks.id, name: banks.name })
       .from(banks);
 
-    logger.info("Sending email content to Gemini for parsing...");
+    // List user categories if userId is provided
+    let userCategories: string[] = [];
+    if (userId) {
+      const cats = await db.select({ name: categories.name }).from(categories).where(eq(categories.userId, userId));
+      userCategories = cats.map(c => c.name);
+    }
+
+    logger.info({ userCategories }, "Using user categories for parsing");
 
     const banksForPrompt = banks_availables.map((b) => ({
       id: b.id,
@@ -96,13 +105,16 @@ Fields to extract:
 - bankId (string, id of the bank or fintech. You MUST choose one of the following banks and return its id exactly)
 - amount (number, only the numeric value)
 - currency (string, ISO code like USD, EUR, CLP - default to CLP if not specified)
-- category (string, e.g., Food, Transport, Subscription, etc.)
+- category (string, Choose the best matching category from the list below. If none match, return "Otros")
 - description (string, merchant name or short description)
 - cardLastFour (string, last 4 digits of the card if available)
 - transactionDate (string, ISO 8601 format if available, otherwise null)
 
 Available banks (JSON):
 ${JSON.stringify(banksForPrompt, null, 2)}
+
+Allowed Categories:
+${userCategories.length > 0 ? userCategories.join(", ") : "Food, Transport, Subscription, Shopping, Services, Salary, Transfer, Otros"}
 
 Email details:
 Subject: ${subject}
@@ -137,11 +149,19 @@ Return ONLY the JSON.
   },
 
   async parseExcelTransactions(
-    excelDataString: string
+    excelDataString: string,
+    userId?: string
   ): Promise<ParsedTransaction[]> {
     if (!process.env.GEMINI_API_KEY) {
       logger.warn("GEMINI_API_KEY is not set. Skipping AI parsing.");
       return [];
+    }
+
+    // List user categories if userId is provided
+    let userCategories: string[] = [];
+    if (userId) {
+      const cats = await db.select({ name: categories.name }).from(categories).where(eq(categories.userId, userId));
+      userCategories = cats.map(c => c.name);
     }
 
     logger.info("Sending Excel data to Gemini for parsing...");
@@ -155,7 +175,7 @@ Return ONLY the JSON.
             - amount (number, the absolute value without sign)
             - transactionType ("cargo" for expenses or "abono" for income - infer from negative/positive amounts or debit/credit columns, if is a charge in a credit card is a cargo)
             - currency (string, ISO code like USD, EUR, CLP - default to CLP if not specified)
-            - category (string, categorize the transaction: Food, Transport, Shopping, Services, Salary, Transfer, etc.)
+            - category (string, Choose the best matching category from the list below. If none match, return "Otros")
             - description (string, merchant name or transaction description)
             - transactionDate (string, ISO 8601 format if available)
             - cardLastFour (string, last 4 digits if available)
@@ -166,6 +186,9 @@ Return ONLY the JSON.
             - Always use absolute values for amount (no negative signs)
             - Skip header rows and summary rows
             - Only include actual transactions
+            
+            Allowed Categories:
+            ${userCategories.length > 0 ? userCategories.join(", ") : "Food, Transport, Subscription, Shopping, Services, Salary, Transfer, Otros"}
 
             Excel data:
             """

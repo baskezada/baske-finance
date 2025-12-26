@@ -10,6 +10,18 @@ export type User = {
     email: string;
     name: string | null;
     avatarUrl: string | null;
+    theme: string | null;
+    color: string | null;
+    background: string | null;
+    trackingMode: string | null;
+    onboardingCompleted: boolean;
+};
+
+export type Category = {
+    id: string;
+    userId: string;
+    name: string;
+    createdAt: string;
 };
 
 export type Transaction = {
@@ -53,6 +65,12 @@ export const api = {
         register: (data: any) => http.post<User>("/auth/register", data),
         login: (data: any) => http.post<User>("/auth/login", data),
         logout: () => http.post<{ success: boolean }>("/auth/logout"),
+        updateOnboarding: (data: Partial<User>) => http.patch<User>("/auth/onboarding", data),
+    },
+    categories: {
+        list: () => http.get<Category[]>("/categories"),
+        create: (name: string) => http.post<Category>("/categories", { name }),
+        delete: (id: string) => http.del<{ success: boolean }>(`/categories/${id}`),
     },
     todos: {
         list: () => http.get<Todo[]>("/todos"),

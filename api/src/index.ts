@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { db } from "./db";
-import { todos, transactions, banks, widgetLayouts } from "./schema";
+import { todos, transactions, banks, widgetLayouts, users, categories } from "./schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { authController, authMiddleware } from "./auth";
 import { OAuth2Client } from "google-auth-library";
@@ -64,6 +64,31 @@ app.get("/auth/me", (c) => authController.me(c));
 app.post("/auth/logout", (c) => authController.logout(c));
 app.get("/auth/:provider/login", (c) => authController.oauthLogin(c));
 app.get("/auth/:provider/callback", (c) => authController.oauthCallback(c));
+
+app.patch("/auth/onboarding", authMiddleware, async (c) => {
+  const user = c.get("user") as any;
+  const body = await c.req.json<{
+    name?: string;
+    theme?: string;
+    color?: string;
+    background?: string;
+    trackingMode?: string;
+    onboardingCompleted?: boolean;
+  }>();
+
+  try {
+    const [updated] = await db
+      .update(users)
+      .set(body)
+      .where(eq(users.id, user.id))
+      .returning();
+
+    return c.json(updated);
+  } catch (err: any) {
+    logger.error({ err, userId: user.id }, "Failed to update onboarding info");
+    return c.json({ error: "Failed to update onboarding info" }, 500);
+  }
+});
 
 app.post("/auth/gmail/import", authMiddleware, async (c) => {
   const user = c.get("user") as any;
@@ -133,6 +158,56 @@ app.post("/banks", authMiddleware, async (c) => {
   }
 });
 
+// Category endpoints
+app.get("/categories", authMiddleware, async (c) => {
+  const user = c.get("user") as any;
+  try {
+    const userCategories = await db
+      .select()
+      .from(categories)
+      .where(eq(categories.userId, user.id))
+      .orderBy(categories.name);
+    return c.json(userCategories);
+  } catch (err: any) {
+    logger.error({ err, userId: user.id }, "Failed to fetch categories");
+    return c.json({ error: "Failed to fetch categories" }, 500);
+  }
+});
+
+app.post("/categories", authMiddleware, async (c) => {
+  const user = c.get("user") as any;
+  try {
+    const { name } = await c.req.json<{ name: string }>();
+    if (!name) return c.json({ error: "Category name is required" }, 400);
+
+    const [newCategory] = await db
+      .insert(categories)
+      .values({ name, userId: user.id })
+      .returning();
+    return c.json(newCategory);
+  } catch (err: any) {
+    logger.error({ err, userId: user.id }, "Failed to create category");
+    return c.json({ error: "Failed to create category" }, 500);
+  }
+});
+
+app.delete("/categories/:id", authMiddleware, async (c) => {
+  const user = c.get("user") as any;
+  const id = c.req.param("id");
+  try {
+    const [deleted] = await db
+      .delete(categories)
+      .where(and(eq(categories.id, id), eq(categories.userId, user.id)))
+      .returning();
+
+    if (!deleted) return c.json({ error: "Category not found" }, 404);
+    return c.json({ success: true });
+  } catch (err: any) {
+    logger.error({ err, userId: user.id }, "Failed to delete category");
+    return c.json({ error: "Failed to delete category" }, 500);
+  }
+});
+
 app.post("/transactions/import-excel", authMiddleware, async (c) => {
   const user = c.get("user") as any;
 
@@ -175,7 +250,8 @@ app.post("/transactions/import-excel", authMiddleware, async (c) => {
     logger.info({ excelData }, "Excel data string");
     // Parse with AI
     const parsedTransactions = await aiService.parseExcelTransactions(
-      excelData
+      excelData,
+      user.id
     );
     if (parsedTransactions.length === 0) {
       return c.json(
@@ -588,7 +664,8 @@ app.post("/auth/gmail/upload-eml", authMiddleware, async (c) => {
       const parsed = await aiService.parseEmailTransaction(
         subject,
         from,
-        plainBody
+        plainBody,
+        user.id
       );
 
       if (!parsed) {

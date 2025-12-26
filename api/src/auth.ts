@@ -17,6 +17,11 @@ export interface UserSession {
     email: string;
     name: string | null;
     avatarUrl: string | null;
+    theme: string | null;
+    color: string | null;
+    background: string | null;
+    trackingMode: string | null;
+    onboardingCompleted: boolean;
 }
 
 // --- OAuth Strategies ---
@@ -97,6 +102,11 @@ async function createSession(c: Context, user: typeof users.$inferSelect) {
         email: user.email,
         name: user.name,
         avatarUrl: user.avatarUrl,
+        theme: user.theme,
+        color: user.color,
+        background: user.background,
+        trackingMode: user.trackingMode,
+        onboardingCompleted: user.onboardingCompleted,
     };
 
     const token = await sign(session, JWT_SECRET);
@@ -158,16 +168,29 @@ export const authController = {
 
 
     async me(c: Context) {
-        logger.info("meAA@");
-        logger.info("me", c.req.cookie);
         const token = getCookie(c, COOKIE_NAME);
-        logger.info("token", token);
         if (!token) return c.json(null, 401);
 
         try {
             const payload = await verify(token, JWT_SECRET) as UserSession;
-            logger.info("payload", payload);
-            return c.json(payload);
+
+            // Refetch user to get latest onboarding and personalization status
+            const [user] = await db.select().from(users).where(eq(users.id, payload.id));
+            if (!user) return c.json(null, 401);
+
+            const session: UserSession = {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                avatarUrl: user.avatarUrl,
+                theme: user.theme,
+                color: user.color,
+                background: user.background,
+                trackingMode: user.trackingMode,
+                onboardingCompleted: user.onboardingCompleted,
+            };
+
+            return c.json(session);
         } catch {
             return c.json(null, 401);
         }

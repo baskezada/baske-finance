@@ -209,8 +209,6 @@ export const gmailService = {
                 if (parsed) {
                     logger.info({ userId: user.id, messageId, parsed }, "Transaction parsed! Saving to database...");
 
-                    logger.warn({ userId: user.id, messageId, bankId: parsed.bankId }, "Gmail import temporarily disabled - need bank validation");
-
                     await db.insert(transactions).values({
                         userId: user.id,
                         bankId: parsed.bankId,
@@ -284,7 +282,7 @@ export const gmailService = {
 
             return text.includes("BANK_TRANSACTION") ? "BANK_TRANSACTION"
                 : text.includes("PURCHASE_INFORMATION") ? "PURCHASE_INFORMATION"
-                : "OTHER";
+                    : "OTHER";
         } catch (error) {
             logger.error({ error }, "Error in email classification");
             return "OTHER";

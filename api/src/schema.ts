@@ -13,6 +13,18 @@ export const users = pgTable("users", {
   refreshToken: text("refresh_token"),
   tokenExpiry: timestamp("token_expiry", { withTimezone: true, mode: 'date' }),
   gmailHistoryId: text("gmail_history_id"),
+  theme: text("theme").default("light"),
+  color: text("color").default("#6366f1"), // indigo-500 default
+  background: text("background"),
+  trackingMode: text("tracking_mode"), // 'gmail', 'forward', 'manual'
+  onboardingCompleted: boolean("onboarding_completed").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+});
+
+export const categories = pgTable("categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 });
 
@@ -73,6 +85,18 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   }),
   user: one(users, {
     fields: [transactions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const usersRelations = relations(users, ({ many }) => ({
+  categories: many(categories),
+  transactions: many(transactions),
+}));
+
+export const categoriesRelations = relations(categories, ({ one }) => ({
+  user: one(users, {
+    fields: [categories.userId],
     references: [users.id],
   }),
 }));

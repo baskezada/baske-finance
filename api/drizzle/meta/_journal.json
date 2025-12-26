@@ -50,6 +50,13 @@
       "when": 1766285332414,
       "tag": "0006_groovy_scarlet_spider",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1766707340031,
+      "tag": "0007_lowly_thunderball",
+      "breakpoints": true
     }
   ]
 }

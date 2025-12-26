@@ -6,6 +6,7 @@ import Main from './screens/Main'
 import TaskDetail from './screens/TaskDetail'
 import Transactions from './screens/Transactions'
 import Settings from './screens/Settings'
+import Onboarding from './screens/Onboarding'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 
@@ -20,6 +21,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) return <Navigate to="/login" replace />
 
+  if (!user.onboardingCompleted && window.location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />
+  }
+
   return <>{children}</>
 }
 
@@ -32,7 +37,10 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
     </div>
   )
 
-  if (user) return <Navigate to="/dashboard" replace />
+  if (user) {
+    if (!user.onboardingCompleted) return <Navigate to="/onboarding" replace />
+    return <Navigate to="/dashboard" replace />
+  }
 
   return <>{children}</>
 }
@@ -56,6 +64,12 @@ function App() {
             <PublicRoute>
               <Register />
             </PublicRoute>
+          } />
+
+          <Route path="/onboarding" element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
           } />
 
           <Route path="/dashboard" element={

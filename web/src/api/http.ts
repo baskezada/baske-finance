@@ -53,6 +53,8 @@ export function createHttpClient(opts: {
             request<T>(path, { ...options, method: "POST", body: data ? JSON.stringify(data) : undefined }),
         put: <T>(path: string, data?: unknown, options?: HttpOptions) =>
             request<T>(path, { ...options, method: "PUT", body: data ? JSON.stringify(data) : undefined }),
+        patch: <T>(path: string, data?: unknown, options?: HttpOptions) =>
+            request<T>(path, { ...options, method: "PATCH", body: data ? JSON.stringify(data) : undefined }),
         del: <T>(path: string, options?: HttpOptions) => request<T>(path, { ...options, method: "DELETE" }),
     };
 }
